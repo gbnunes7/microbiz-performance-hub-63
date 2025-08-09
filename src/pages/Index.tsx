@@ -142,7 +142,7 @@ const Index = () => {
           </TabsList>
           
           <TabsContent value="overview" className="space-y-6">
-            <SalesOverview period={period} dateRange={dateRange} filial={filial} />
+            <SalesOverview period={period} dateRange={dateRange} />
           </TabsContent>
           
           <TabsContent value="customers" className="space-y-6">
