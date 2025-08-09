@@ -5,14 +5,17 @@ import ComparisonCard from '@/components/ComparisonCard';
 import KpiChart from '@/components/KpiChart';
 import { DataAnalysis } from '@/components/DataAnalysis';
 import { useGoals } from '@/contexts/GoalsContext';
+import { useMonthlySalesGoals } from '@/contexts/MonthlySalesGoalsContext';
+import { useLicense } from '@/contexts/LicenseContext';
 import { Period, DateRange } from '@/types/metrics';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-const getSalesData = (period: Period, dateRange?: DateRange, goals?: any) => {
+const getSalesData = (period: Period, dateRange?: DateRange, goals?: any, monthlySalesGoal?: number) => {
   // Simple function to generate dates for chart labels based on date range
   const generateDateLabels = (startDate: Date, endDate: Date, numPoints: number) => {
-    const result = [];
+    const result = [] as { date: Date; label: string }[];
     const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     const interval = Math.max(1, Math.floor(daysDiff / numPoints));
     
@@ -49,7 +52,7 @@ const getSalesData = (period: Period, dateRange?: DateRange, goals?: any) => {
     const totalRevenue = Math.round(78500 * scaleFactor);
     const productRevenue = Math.round(42200 * scaleFactor);
     const serviceRevenue = Math.round(36300 * scaleFactor);
-    const goalValue = Math.round((goals?.sales || 85000) * scaleFactor);
+    const goalValue = monthlySalesGoal !== undefined ? Math.round(monthlySalesGoal * scaleFactor) : undefined;
     
     // Generate sales chart data
     const salesChart = dateLabels.map((item, index) => {
@@ -58,8 +61,8 @@ const getSalesData = (period: Period, dateRange?: DateRange, goals?: any) => {
         name: item.label,
         current: Math.round(totalRevenue * progressRatio),
         previous: Math.round(totalRevenue * 0.9 * progressRatio),
-        goal: Math.round(goalValue * progressRatio)
-      };
+        goal: goalValue !== undefined ? Math.round(goalValue * progressRatio) : undefined
+      } as { name: string; current: number; previous: number; goal?: number };
     });
     
     return {
@@ -135,7 +138,7 @@ const getSalesData = (period: Period, dateRange?: DateRange, goals?: any) => {
         { name: '15/04', current: 270, previous: 250, goal: goals?.ticketAverage || 265 },
         { name: '22/04', current: 265, previous: 245, goal: goals?.ticketAverage || 265 },
       ],
-      goalValue: goals?.sales || 85000,
+      goalValue: monthlySalesGoal !== undefined ? monthlySalesGoal : undefined,
     };
   }
 };
@@ -143,11 +146,23 @@ const getSalesData = (period: Period, dateRange?: DateRange, goals?: any) => {
 interface SalesOverviewProps {
   period: Period;
   dateRange?: DateRange;
+  filial: 'all' | number;
 }
 
-const SalesOverview = ({ period, dateRange }: SalesOverviewProps) => {
+const SalesOverview = ({ period, dateRange, filial }: SalesOverviewProps) => {
   const { goals } = useGoals();
-  const data = getSalesData(period, dateRange, goals);
+  const { selectedLicenseId } = useLicense();
+  const { getGoal } = useMonthlySalesGoals();
+
+  const empresaId = selectedLicenseId || '';
+  let monthlyGoalValue: number | undefined = undefined;
+  if (filial !== 'all' && dateRange && empresaId) {
+    const m = dateRange.startDate.getMonth() + 1;
+    const y = dateRange.startDate.getFullYear();
+    monthlyGoalValue = getGoal(empresaId, Number(filial), y, m)?.valorMeta;
+  }
+
+  const data = getSalesData(period, dateRange, goals, monthlyGoalValue);
   const goalPercentage = data.goalValue ? (data.totalRevenue / data.goalValue) * 100 : 0;
   
   const getPeriodDescription = () => {
@@ -160,6 +175,14 @@ const SalesOverview = ({ period, dateRange }: SalesOverviewProps) => {
   
   return (
     <>
+      {(filial === 'all' || !data.goalValue) && (
+        <Alert className="mb-4">
+          <AlertTitle>Aviso</AlertTitle>
+          <AlertDescription>
+            {filial === 'all' ? 'Selecione uma filial específica para avaliar a meta.' : 'Meta não configurada para este mês/ano/filial.'}
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <ComparisonCard
           title="Faturamento Total"

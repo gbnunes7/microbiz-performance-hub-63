@@ -88,3 +88,13 @@ export interface MonthlyGoal {
   month: string;
   value: number;
 }
+
+// Monthly sales goal entity (per empresa, filial, month, year)
+export interface SalesMonthlyGoal {
+  id: string;
+  empresaId: string; // maps to selected license ID
+  filialId: number;  // numeric branch identifier
+  ano: number;       // e.g., 2025
+  mes: number;       // 1-12
+  valorMeta: number; // goal value for the month
+}
